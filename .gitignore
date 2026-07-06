@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.npz
+*.parquet
+*.tgz
+*.tar.gz
+cifar-10-batches-py/
+*.log
+.DS_Store
+/*.json
+critics/
+/HANDOFF.md
+*.zip
+run13.bat

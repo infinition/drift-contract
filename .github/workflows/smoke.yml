@@ -1,0 +1,25 @@
+name: smoke
+on: [push, pull_request]
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy
+      - name: two-epoch training run on the synthetic task
+        run: |
+          python - <<'EOF'
+          from drift_contract import make_data, train
+          data = make_data(seed=0)
+          r = train('dll_gluon', lr=3e-2, seed=0, data=data, epochs=2, aux_lr=3e-3)
+          print('acc:', r['acc'])
+          assert r['acc'] > 0.85 and not r['diverged']
+          r = train('dll_gluon', lr=1e-2, seed=0, data=data, epochs=2, aux_lr=3e-3,
+                    drift_budget=0.01, bias_contract='clip')
+          print('contract acc:', r['acc'])
+          assert r['acc'] > 0.85 and not r['diverged']
+          EOF

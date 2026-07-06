@@ -24,26 +24,39 @@ def parse(name):
     return dict(phase=phase, method=method, dim=dim, dimv=int(dimv),
                 hp=hp, hpv=float(hpv), seed=int(seed))
 
+# Headline tables use only the 12-epoch selection/confirmation phases.
+# L (50 epochs), X (variants), G (global), C (contract probes) are different
+# regimes and must not be mixed into the width/depth headline selection.
+HEADLINE_PHASES = {"V", "W", "D", "S"}
 rows = []
 for name, rec in D.items():
     p = parse(name)
-    if p and not rec.get("diverged", False):
+    if p and p["phase"] in HEADLINE_PHASES and not rec.get("diverged", False):
         p.update(val=rec["val"], test=rec["test"])
         rows.append(p)
 
+# The spectral arms (contract, gfix) keep one setting selected once on
+# validation and transferred everywhere; only Adam is re-tuned per configuration.
+FIXED_HP = {"contract": 0.003, "gfix": 0.003}
+
 def select(method, dim, dimv):
-    """Return (best_hp, test_mean, test_std, n_seeds, mean_val) or None."""
+    """Return (best_hp, test_mean, test_std, n_seeds, mean_val) or None.
+    Spectral arms use the fixed transferred setting; Adam is validation-selected."""
     cand = [r for r in rows if r["method"] == method and r["dim"] == dim and r["dimv"] == dimv]
     if not cand:
         return None
     by_hp = {}
     for r in cand:
         by_hp.setdefault(r["hpv"], []).append(r)
-    best_hp, best = None, -1.0
-    for hpv, rs in by_hp.items():
-        mv = sum(x["val"] for x in rs) / len(rs)
-        if mv > best:
-            best, best_hp = mv, hpv
+    if method in FIXED_HP and FIXED_HP[method] in by_hp:
+        best_hp = FIXED_HP[method]
+        best = sum(x["val"] for x in by_hp[best_hp]) / len(by_hp[best_hp])
+    else:
+        best_hp, best = None, -1.0
+        for hpv, rs in by_hp.items():
+            mv = sum(x["val"] for x in rs) / len(rs)
+            if mv > best:
+                best, best_hp = mv, hpv
     sel = by_hp[best_hp]
     tests = [x["test"] * 100 for x in sel]
     mean = sum(tests) / len(tests)

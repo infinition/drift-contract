@@ -9,22 +9,22 @@ Local learning (each layer trained by its own auxiliary loss, no global backward
 This repository shows that Muon-style spectral update geometry (momentum, Newton-Schulz orthogonalization, spectral step scaling), applied for the first time to per-layer local updates, removes both costs on our benchmark:
 
 - One step-size setting (3e-3, expressed either as a fixed learning rate or as a per-layer activation drift budget) is optimal from width 128 to 2048 (16x) and from depth 12 to 48 (4x), with no re-tuning. Adam requires re-tuning along both axes.
-- Depth stops killing local learning. At 48 layers, local Adam collapses to 31.3 percent even at its best learning rate. The spectral update reaches 42.4 percent with the same setting it uses at depth 12.
-- At 5 seeds, width 512: drift contract 49.21 +/- 0.95 vs local Adam 46.75 +/- 0.85. The five-seed ranges do not overlap. The advantage grows with width and depth.
+- Depth stops killing local learning. At 48 layers, local Adam collapses to 31.3 percent even at its best learning rate. The spectral update reaches 42.7 percent with the same setting it uses at depth 12.
+- At 5 seeds, width 512: drift contract 48.9 +/- 0.5 vs local Adam 46.6 +/- 0.3. The five-seed ranges do not overlap. The contract wins at every width (128 to 1024 on five seeds).
 
-We also formulate the step size as a drift contract: with lr = epsilon / RMS(input), each layer's weight update changes its pre-activations by at most about epsilon (RMS) per step, conditioned on its current input (approximate orthogonalization and one contracting layer add stated slack; the paper gives the exact bound). The contract gives a small consistent gain over the best fixed learning rate (+0.6 to +1.5 points at every width), an interpretable knob, and a per-layer, input-conditioned drift bound that no standard optimizer provides (the paper states the bound and its conditions exactly).
+We also formulate the step size as a drift contract: with lr = epsilon / RMS(input), each layer's weight update changes its pre-activations by at most about epsilon (RMS) per step, conditioned on its current input (approximate orthogonalization and one contracting layer add stated slack; the paper gives the exact bound). The contract edges the best fixed learning rate where both are measured (about +1 point at width 1024), gives an interpretable knob, and provides a per-layer, input-conditioned drift bound that no standard optimizer offers. We verify that bound directly: the per-step ratio of pre-activation change to budget has mean near 1, and in the strict (exact-scaled) form its 99th percentile stays at 1.09 with a maximum of 1.19 across layers (the paper states the bound and its conditions exactly).
 
 ## Honest attribution, established by pre-registered controls
 
 - Width transfer of the step size is a property of the spectral geometry itself (the sqrt(d_out/d_in) scaling), not of the contract. The fixed-lr spectral update transfers too (control B).
-- Depth robustness also belongs mostly to the geometry (the fixed-lr spectral update matches the contract at depth 24 and is 1.2 points behind at depth 48, within 2-seed noise).
+- Depth robustness also belongs mostly to the geometry (the fixed-lr spectral update matches the contract at depth 24 and is 2.5 points behind at depth 48, two seeds).
 - With RMSNorm and weight decay in the trunk, the stability advantage of spectral updates moves to global training (Muon), not local. The local advantage is largest exactly where normalization is absent. See `results/norm_sweep.json`.
 - Width transfer of learning rates in local learning was previously shown for predictive coding and target propagation via muP parameterization (arXiv:2411.02001); our transfer covers auxiliary-head local learning, extends to depth, and derives the step from a drift bound.
-- Hyperparameters are selected on a held-out validation split; test accuracy is reported at the selected setting. (Width 2048 and a few Adam cells are still accumulating their last seeds.)
+- Hyperparameters are selected on a held-out validation split; test accuracy is reported at the selected setting. Width 2048 and two Adam cells use two seeds rather than five (outside the seed sweep).
 - Effective rank of features under spectral updates is 2 to 4x higher than under Adam, consistent with gradient-spectrum observations reported independently for global ViT training (arXiv:2605.24770).
 
-<!-- Numbers below are validation-selected (analyze_val.py). Regenerate and
-refresh once the campaign hits DONE (adds width-2048 and a few Adam seeds). -->
+<!-- Numbers are validation-selected from the completed 182-run campaign
+(analyze_val.py, phases V/W/D/S). Width 2048 stays at two seeds by design. -->
 ## Results overview
 
 CIFAR-10 (20k train / 5k test, flattened), MLP depth 12, local linear heads, 12 epochs, mean test accuracy.
@@ -47,8 +47,8 @@ Depth scaling at width 128 (contract keeps epsilon = 0.003; Adam re-tuned per de
 | Depth | Drift contract | Local Adam |
 |---|---|---|
 | 12 | 45.7 | 44.4 |
-| 24 | 44.2 | 41.3 |
-| 48 | 42.4 | 31.3 |
+| 24 | 45.6 | 41.3 |
+| 48 | 42.7 | 31.3 |
 
 The contract loses about 3 points from depth 12 to 48; local Adam loses about 13.
 

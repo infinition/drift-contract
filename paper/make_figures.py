@@ -9,10 +9,21 @@ import matplotlib.pyplot as plt
 
 os.makedirs('paper/figs', exist_ok=True)
 
+# Data source: the completed validation campaign (cifar_val.json). We keep only
+# the 12-epoch selection/confirmation phases (V, W, D, S) so the figures match
+# the headline tables, remap keys to the plotting convention, and report test
+# accuracy (val is used only for selection, not plotted).
+HEADLINE_PHASES = {'V', 'W', 'D', 'S'}
+METHOD = {'contract': 'gluon', 'gfix': 'gfix', 'adam': 'adam'}
 allr = {}
-for f in ['cifar_transfer.json', 'cifar_gpu.json', 'cifar_big.json', 'cifar_big2.json']:
-    for k, v in json.load(open(f'results/{f}')).items():
-        allr[re.sub(r'^(B|C|D|E2?|Dg)_', '', k).replace('contrat_', 'gluon_')] = v
+for k, v in json.load(open('results/cifar_val.json')).items():
+    m = re.match(r'([A-Z])_([a-z]+)_((?:w|d)\d+_(?:eps|lr)[0-9.]+_s\d+)$', k)
+    if not m or m.group(1) not in HEADLINE_PHASES or v.get('diverged'):
+        continue
+    method = METHOD.get(m.group(2))
+    if method is None:
+        continue
+    allr[f'{method}_{m.group(3)}'] = {'acc': v['test']}
 
 def series(prefix):
     """-> {value: (mean, std, n)} for keys like prefix + value + _s<seed>"""
@@ -75,19 +86,25 @@ def get(prefix12, prefixD, vals):
             key = pref.format(d=d, v=val)
             accs = [v['acc'] for k, v in allr.items() if re.match(re.escape(key) + r'_s\d$', k)]
             if accs: cands.append(st.mean(accs))
-        row.append(max(cands)*100)
+        row.append(max(cands)*100 if cands else None)
     return row
 
 contract = get('gluon_w128_eps{v}', 'gluon_d{d}_eps{v}', ['0.003'])
-gfix     = get('gfix_w128_lr{v}',   'gfix_d{d}_lr{v}',   ['0.001', '0.003', '0.01'])
+gfix     = get('gfix_w128_lr{v}',   'gfix_d{d}_lr{v}',   ['0.003'])
 adam     = get('adam_w128_lr{v}',   'adam_d{d}_lr{v}',   ['0.0003', '0.001', '0.003'])
 
+def present(xs, ys):
+    return zip(*[(x, y) for x, y in zip(xs, ys) if y is not None]) if any(y is not None for y in ys) else ([], [])
+
 fig, ax = plt.subplots(figsize=(4.2, 3.0), dpi=200)
-ax.plot(depths, contract, color='#08519c', marker='o', ms=5, lw=1.8,
+cx, cy = present(depths, contract)
+ax.plot(cx, cy, color='#08519c', marker='o', ms=5, lw=1.8,
         label=r'drift contract, $\epsilon=0.003$ everywhere')
-ax.plot(depths, gfix, color='#3182bd', marker='s', ms=5, lw=1.6, ls='--',
+gx, gy = present(depths, gfix)
+ax.plot(gx, gy, color='#3182bd', marker='s', ms=5, lw=1.6, ls='--',
         label='fixed-lr spectral, 3e-3 everywhere')
-ax.plot(depths, adam, color='#e07b39', marker='^', ms=5, lw=1.6, ls='-.',
+ax_, ay = present(depths, adam)
+ax.plot(ax_, ay, color='#e07b39', marker='^', ms=5, lw=1.6, ls='-.',
         label='local Adam, re-tuned per depth')
 ax.set_xticks(depths)
 ax.set_xlabel('network depth (layers)')

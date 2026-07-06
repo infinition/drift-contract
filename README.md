@@ -168,3 +168,7 @@ MLP classifiers only, 12 fixed epochs, CIFAR-10 subset, linear local heads. Per-
 ## License
 
 MIT
+
+## Star history
+
+[![Star History Chart](https://api.star-history.com/svg?repos=infinition/drift-contract&type=Date)](https://star-history.com/#infinition/drift-contract&Date)

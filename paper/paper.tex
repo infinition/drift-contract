@@ -26,7 +26,7 @@ Backpropagation couples every layer to the loss through a full backward pass. Lo
 
 Independently, Muon \citep{jordan2024muon} showed that constraining the spectral norm of weight updates (momentum, Newton-Schulz orthogonalization, spectral scaling) roughly halves the training cost of large transformers \citep{liu2025muon}. The theory behind it, steepest descent under operator norms, modular norms, and muP-style scaling \citep{bernstein2024old,large2024modular,yang2022tensor}, assumes gradients from a global backward pass. Whether any of it applies to local gradients was, to our knowledge, unexamined.
 
-Why this matters beyond benchmarks: the combination unlocked here, local training that survives depth, needs no tuning, and carries a per-step drift bound, is exactly the trio required wherever a global backward pass is impossible or unwanted: memory-constrained edge devices, decentralized pipelines over slow links, backprop-hostile hardware, and continually learning systems that must be certified not to change behavior abruptly.
+Why this matters beyond benchmarks: local training that survives depth, needs no per-layer tuning, and carries a per-step drift bound is well suited to settings where a global backward pass is impossible or unwanted, such as memory-constrained edge devices, decentralized pipelines over slow links, backprop-hostile hardware, and continually learning systems that should not change behavior abruptly.
 
 This paper studies that intersection. Contributions:
 

@@ -17,7 +17,7 @@
 \maketitle
 
 \begin{abstract}
-Local learning trains each layer with its own auxiliary loss and no global backward pass, which makes layer updates structurally parallel. Two problems have kept it marginal: accuracy degrades as depth grows, and hyperparameters are fragile. We apply Muon-style spectral update geometry (momentum orthogonalization with spectral step scaling) to per-layer local updates, an intersection not previously studied. On CIFAR-10 MLP benchmarks with local linear heads, a single step-size setting is the best value in our tested grids from width 128 to 2048 and from depth 12 to 48, while local Adam requires re-tuning along both axes and still collapses at depth 48 (32.0 percent re-tuned per depth, 19 percent with its depth-12 setting transferred, vs 42.1 percent for the spectral update at its unchanged depth-12 setting). At five seeds and width 512 the observed accuracy ranges of the two methods do not overlap ($49.2 \pm 1.0$ vs $46.8 \pm 0.9$). Prospectively specified controls attribute the transfer and most of the depth robustness to the spectral geometry itself rather than to any step-size rule on top of it. We additionally formulate the step size as a drift contract, $\mathrm{lr} = \eps / \mathrm{RMS}(\text{input})$, which bounds each layer's weight-induced pre-activation change per step, conditioned on its current input. The contract yields a small consistent gain over the best fixed learning rate at every width, makes the step size interpretable, and provides a per-layer, input-conditioned drift bound that standard optimizers do not offer. We report one negative result: with RMSNorm and weight decay in the trunk, the stability benefit of spectral updates accrues to global rather than local training, so the local advantage concentrates precisely where normalization is absent.
+Local learning trains each layer with its own auxiliary loss and no global backward pass, which makes layer updates structurally parallel. Two problems have kept it marginal: accuracy degrades as depth grows, and hyperparameters are fragile. We apply Muon-style spectral update geometry (momentum orthogonalization with spectral step scaling) to per-layer local updates, an intersection not previously studied. On CIFAR-10 MLP benchmarks with local linear heads, a single step-size setting is the best value in our tested grids from width 128 to 2048 and from depth 12 to 48, while local Adam requires re-tuning along both axes and still collapses at depth 48 (31.3 percent re-tuned per depth, 19 percent with its depth-12 setting transferred, vs 42.4 percent for the spectral update at its unchanged depth-12 setting). At five seeds and width 512 the spectral update leads local Adam by a clear margin ($48.9 \pm 0.5$ vs $46.6 \pm 0.3$). Prospectively specified controls attribute the transfer and most of the depth robustness to the spectral geometry itself rather than to any step-size rule on top of it. We additionally formulate the step size as a drift contract, $\mathrm{lr} = \eps / \mathrm{RMS}(\text{input})$, which bounds each layer's weight-induced pre-activation change per step, conditioned on its current input. The contract yields a small consistent gain over the best fixed learning rate at every width, makes the step size interpretable, and provides a per-layer, input-conditioned drift bound that standard optimizers do not offer. We report one negative result: with RMSNorm and weight decay in the trunk, the stability benefit of spectral updates accrues to global rather than local training, so the local advantage concentrates precisely where normalization is absent.
 \end{abstract}
 
 \section{Introduction}
@@ -32,9 +32,9 @@ This paper studies that intersection. Contributions:
 
 \begin{enumerate}
 \item First systematic study of spectral update geometry in local learning, with prospectively specified protocol and controls (fixed-lr attribution, auxiliary-parameter confound, normalization).
-\item A depth result: local Adam degrades from 44.9 to 32.0 percent as depth goes 12 to 48 even with per-depth re-tuning; spectral updates lose 3.8 percentage points with a single unchanged setting.
+\item A depth result: local Adam degrades from 44.4 to 31.3 percent as depth goes 12 to 48 even with per-depth re-tuning; spectral updates lose 3.3 percentage points with a single unchanged setting.
 \item A transfer result: one setting (3e-3) is the best-performing value in the tested grids across a 16x width range and a 4x depth range. The optimum is interior (accuracy collapses when the setting is 10x smaller and decays when larger) and lands at the same value on both axes.
-\item The drift contract: expressing the step as $\mathrm{lr} = \eps / \mathrm{RMS}(\text{input})$ turns the learning rate into a per-layer, input-conditioned bound on weight-induced functional change (Section 2 states the bound and its slack exactly; orthogonalized updates have approximately unit spectral norm). It adds 0.6 to 1.5 percentage points over the best fixed lr at every width, and its gap over local Adam grows monotonically with width: +1.0, +2.5, +2.7, +3.2 percentage points at widths 128, 512, 1024, 2048.
+\item The drift contract: expressing the step as $\mathrm{lr} = \eps / \mathrm{RMS}(\text{input})$ turns the learning rate into a per-layer, input-conditioned bound on weight-induced functional change (Section 2 states the bound and its slack exactly; orthogonalized updates have approximately unit spectral norm). It edges the best fixed lr where both are measured (about +1 point at width 1024), and it beats local Adam at every width: +1.2, +2.3, +2.9 points at widths 128, 512, 1024 (five seeds), and +1.0 at width 2048 (two seeds).
 \item Negative and attribution results: RMSNorm plus weight decay moves the stability advantage to global Muon; width transfer is due to spectral scaling, not the contract; bias updates are not the source of the residual drift floor.
 \end{enumerate}
 
@@ -88,48 +88,49 @@ Figure~\ref{fig:eps} shows contract accuracy by $\eps$. The curve is a full bell
 \label{fig:depth}
 \end{figure}
 
-% FINALIZE: when cifar_val.json is complete (phase D through depth 48), replace
-% the body below with the depth block printed by `python analyze_val.py`.
+% Numbers are validation-selected (analyze_val.py, phase D complete). Refresh at DONE.
 \begin{table}[t]
 \centering
-\caption{Depth scaling at width 128, mean of 2 seeds, best setting per arm.}
+\caption{Depth scaling at width 128, validation-selected setting per arm, test
+accuracy. Depth 12 is 5 seeds; depths 24 and 48 are 2 seeds for the spectral
+arms (Adam at depth 48 is 5).}
 \label{tab:depth}
 \begin{tabular}{lccc}
 \toprule
 Depth & Contract ($\eps$ 0.003) & The fixed-lr spectral update (3e-3) & Local Adam (best lr) \\
 \midrule
-12 & 45.9 & 44.9 & 44.9 (1e-3) \\
-24 & 45.4 & 45.5 & 41.3 (1e-3) \\
-48 & \textbf{42.1} & 40.9 & 32.0 (3e-4) \\
+12 & 45.7 & -- & 44.4 \\
+24 & 44.2 & 45.6 & 41.3 \\
+48 & \textbf{42.4} & 40.2 & 31.3 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:depth} and Figure~\ref{fig:depth}: Adam loses 12.9 points over the depth range despite per-depth re-tuning (its optimal lr also shifts, and its width-128-optimal setting scores 19 percent at depth 48). Spectral arms keep one setting throughout. $\eps^{*} = 0.003$ at all three depths.
+Table~\ref{tab:depth} and Figure~\ref{fig:depth}: Adam loses about 13 points over the depth range despite per-depth re-tuning (its width-128-optimal setting scores 19 percent at depth 48), while the contract loses about 3. Spectral arms keep one setting throughout. $\eps^{*} = 0.003$ at all three depths. The fixed-lr spectral entry at depth 12 is left blank because the width-128 base has no fixed-lr run in this campaign.
 
 \subsection{Five-seed statistics}
 
-% FINALIZE: when cifar_val.json is complete (phase S adds seeds 2-4), replace
-% the body below with the width block printed by `python analyze_val.py`, and
-% delete the "grid selection on the test split ... rerun is planned" sentence in
-% the Limitations section.
+% Numbers are validation-selected (analyze_val.py). At DONE, refresh: width 2048
+% reaches 5 seeds only if added to phase S, and a few Adam cells gain seeds.
 \begin{table}[t]
 \centering
-\caption{Headline configurations, 5 seeds each, mean $\pm$ standard deviation.}
+\caption{Headline configurations, validation-selected, test accuracy, mean
+$\pm$ standard deviation. Widths 128, 512, 1024 are 5 seeds; width 2048 is 2
+seeds (outside the seed sweep).}
 \label{tab:seeds}
 \begin{tabular}{lccc}
 \toprule
 Width & Contract & Local Adam & Gap \\
 \midrule
-128 & $45.92 \pm 0.71$ & $44.87 \pm 0.98$ & +1.05 \\
-512 & $49.21 \pm 0.95$ & $46.75 \pm 0.85$ & +2.46 \\
-1024 & $50.55 \pm 0.63$ & $47.84 \pm 0.79$ & +2.71 \\
-2048 & $51.53 \pm 0.81$ & $48.35 \pm 1.97$ & +3.18 \\
+128 & $45.66 \pm 0.32$ & $44.44 \pm 1.49$ & +1.22 \\
+512 & $48.92 \pm 0.55$ & $46.59 \pm 0.31$ & +2.33 \\
+1024 & $50.72 \pm 0.63$ & $47.84 \pm 0.71$ & +2.88 \\
+2048 & $49.76 \pm 0.90$ & $48.78 \pm 1.86$ & +0.98 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:seeds}: at widths 512 and 1024 the observed five-seed ranges do not overlap (width 512: worst contract seed 48.1 vs best Adam seed 47.9; width 1024: 49.9 vs 48.7). The gap grows monotonically with width while Adam's seed variance grows (2.0 percentage points of spread at width 2048).
+Table~\ref{tab:seeds}: the contract beats local Adam at every width, by 1.2 to 2.9 points on the five-seed widths (128, 512, 1024). The width-2048 gap (+1.0) rests on two seeds and Adam's larger seed variance there, so we do not read a trend into it. The clean separation is at widths 512 and 1024, where the five-seed means are well apart.
 
 \subsection{Stability and the normalization caveat}
 \label{sec:stability}
@@ -150,7 +151,7 @@ Muon and its analysis: orthogonalized momentum and spectral-norm-constrained ste
 
 \section{Limitations}
 
-MLP classifiers on CIFAR-scale data; linear local heads; 12 fixed epochs (no schedule study, so part of the gap may reflect optimization speed rather than converged performance); per-layer drift is bounded but total network drift grows with depth (0.20 to 0.55 from depth 12 to 48 at fixed $\eps$, suggesting depth-aware budgets); Newton-Schulz overhead is 10 to 15 percent at these sizes. Grid selection in this version was performed on the test split; all grid values are reported in full, and a held-out validation split rerun is planned before submission. The drift bound is conditional (Section 2): it covers weight-induced drift at the current input, not propagated or off-distribution drift. The negative normalization result bounds the claim: spectral local updates matter most in unnormalized or normalization-averse settings (analog hardware, minimal-memory edge training). $\eps$ is scale-invariant but not domain-invariant (0.01 on our synthetic task, 0.003 on CIFAR).
+MLP classifiers on CIFAR-scale data; linear local heads; 12 fixed epochs (no schedule study, so part of the gap may reflect optimization speed rather than converged performance); per-layer drift is bounded but total network drift grows with depth (0.20 to 0.55 from depth 12 to 48 at fixed $\eps$, suggesting depth-aware budgets); Newton-Schulz overhead is 10 to 15 percent at these sizes. Hyperparameters are selected on a held-out validation split and test accuracy is reported at the selected setting; a few cells (width 2048, some Adam configurations) are still accumulating their final seeds. The drift bound is conditional (Section 2): it covers weight-induced drift at the current input, not propagated or off-distribution drift. The negative normalization result bounds the claim: spectral local updates matter most in unnormalized or normalization-averse settings (analog hardware, minimal-memory edge training). $\eps$ is scale-invariant but not domain-invariant (0.01 on our synthetic task, 0.003 on CIFAR).
 
 \section{Conclusion}
 

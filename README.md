@@ -1,3 +1,7 @@
+<p align="center">
+  <img src=".github/drift-contract.png" alt="The drift contract icon" width="128">
+</p>
+
 # The drift contract: spectral updates for local learning
 
 Paper: `paper/paper.tex` (arXiv link to come). Every number below is reproducible from this repository; the core results rerun in about one hour on a laptop CPU.

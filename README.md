@@ -4,7 +4,8 @@
 
 # The drift contract: spectral updates for local learning
 
-Paper: `paper/paper.tex` (arXiv link to come). Every number below is reproducible from this repository; the core results rerun in about one hour on a laptop CPU.
+Paper: https://arxiv.org/abs/2609.26811
+Every number below is reproducible from this repository; the core results rerun in about one hour on a laptop CPU.
 
 **In plain terms.** Most neural networks learn from a report card that travels back through the whole network after every attempt, so every layer waits for it, and an engineer has to hand-tune how fast each network learns. Here, each layer grades itself and learns immediately. That idea is old, but it always broke down when networks got deep, until the update rule studied here: give every layer the same small "change budget" per step. With it, deep networks train fine, the one setting works unchanged on networks 16 times wider and 4 times deeper, and each layer's own updates are capped so they cannot change its behavior faster than the budget allows. Training that tunes itself and cannot lurch: that is what this repository measures.
 
